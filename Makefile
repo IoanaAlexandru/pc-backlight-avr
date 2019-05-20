@@ -16,7 +16,7 @@ all: $(TARGET).hex
 	$(OBJCOPY) -R .eeprom -O ihex $< $@
 	
 %.elf: %.o
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@ usart.c
 
 program: $(TARGET).hex
 	bootloadHID.exe -r $<

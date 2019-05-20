@@ -3,6 +3,7 @@
    This implementation disables interrupts while it does bit-banging with inline assembly.
  */
 
+#include "usart.h"
 /* This line specifies the frequency your AVR is running at.
    This code supports 20 MHz, 16 MHz and 8MHz */
 #define F_CPU 16000000
@@ -125,18 +126,62 @@ void __attribute__((noinline)) led_strip_write(rgb_color *colors, unsigned int c
     _delay_us(80);  // Send the reset signal.
 }
 
-#define LED_COUNT 28
+#define LED_WIDTH 28
+#define LED_HEIGHT 16
+#define LED_COUNT ((LED_WIDTH) * 2 + (LED_HEIGHT) * 2)
 rgb_color colors[LED_COUNT];
 
 int main() {
     unsigned int time = 0;
 
     while (1) {
-        unsigned int i;
-        for (i = 0; i < LED_COUNT; i++) {
-            unsigned char x = (time >> 2) - 8 * i;
-            colors[i] = (rgb_color) {x / 50, (255 - x) / 50, x / 50};
+        int ok = 0;
+        rgb_color topL, topR, botL, botR;
+        if (USART0_receive() == 0xC1) {
+            topL.red = USART0_receive();
+            topL.green = USART0_receive();
+            topL.blue = USART0_receive();
+
+            if (USART0_receive() == 0xC2) {
+                topR.red = USART0_receive();
+                topR.green = USART0_receive();
+                topR.blue = USART0_receive();
+
+                if (USART0_receive() == 0xC3) {
+                    botL.red = USART0_receive();
+                    botL.green = USART0_receive();
+                    botL.blue = USART0_receive();
+
+                    if (USART0_receive() == 0xC4) {
+                        botR.red = USART0_receive();
+                        botR.green = USART0_receive();
+                        botR.blue = USART0_receive();
+
+                        ok = 1;
+                    }
+                }
+            }
         }
+
+        if (!ok)
+            continue;  // corrupted data
+
+        unsigned int i;
+        for (i = 0; i < LED_WIDTH / 2; i++)
+            colors[i] = botL;
+        for (i = LED_WIDTH / 2; i < LED_WIDTH + LED_HEIGHT / 2; i++)
+            colors[i] = botR;
+        for (i = LED_WIDTH + LED_HEIGHT / 2; i < LED_WIDTH * 1.5 + LED_HEIGHT; i++)
+            colors[i] = topR;
+        for (i = LED_WIDTH * 1.5 + LED_HEIGHT; i < LED_WIDTH * 2 + LED_HEIGHT * 1.5; i++)
+            colors[i] = topL;
+        for (i = LED_WIDTH * 2 + LED_HEIGHT * 1.5; i < LED_COUNT; i++)
+            colors[i] = botL;
+
+//        for (i = 0; i < LED_COUNT; i++) {
+//            unsigned char x = (time >> 2) - 8 * i;
+//            colors[i] = (rgb_color) {x / 50, (255 - x) / 50, x / 50};
+//        }
 
         led_strip_write(colors, LED_COUNT);
 
