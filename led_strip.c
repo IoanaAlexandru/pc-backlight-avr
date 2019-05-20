@@ -5,14 +5,14 @@
 
 /* This line specifies the frequency your AVR is running at.
    This code supports 20 MHz, 16 MHz and 8MHz */
-#define F_CPU 20000000
+#define F_CPU 16000000
 
 // These lines specify what pin the LED strip is on.
 // You will either need to attach the LED strip's data line to PC0 or change these
 // lines to specify a different pin.
-#define LED_STRIP_PORT PORTC
-#define LED_STRIP_DDR  DDRC
-#define LED_STRIP_PIN  0
+#define LED_STRIP_PORT PORTB
+#define LED_STRIP_DDR  DDRB
+#define LED_STRIP_PIN  3
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -25,9 +25,8 @@
       Pure green: (rgb_color){ 0, 255, 0 }
       Pure blue:  (rgb_color){ 0, 0, 255 }
       White:      (rgb_color){ 255, 255, 255} */
-typedef struct rgb_color
-{
-  unsigned char red, green, blue;
+typedef struct rgb_color {
+    unsigned char red, green, blue;
 } rgb_color;
 
 /** led_strip_write sends a series of colors to the LED strip, updating the LEDs.
@@ -43,19 +42,17 @@ typedef struct rgb_color
   1 pulse  = 850 ns
   "period" = 1300 ns
  */
-void __attribute__((noinline)) led_strip_write(rgb_color * colors, unsigned int count) 
-{
-  // Set the pin to be an output driving low.
-  LED_STRIP_PORT &= ~(1<<LED_STRIP_PIN);
-  LED_STRIP_DDR |= (1<<LED_STRIP_PIN);
+void __attribute__((noinline)) led_strip_write(rgb_color *colors, unsigned int count) {
+    // Set the pin to be an output driving low.
+    LED_STRIP_PORT &= ~(1 << LED_STRIP_PIN);
+    LED_STRIP_DDR |= (1 << LED_STRIP_PIN);
 
-  cli();   // Disable interrupts temporarily because we don't want our pulse timing to be messed up.
-  while(count--)
-  {
-    // Send a color to the LED strip.
-    // The assembly below also increments the 'colors' pointer,
-    // it will be pointing to the next color at the end of this loop.
-    asm volatile(
+    cli();   // Disable interrupts temporarily because we don't want our pulse timing to be messed up.
+    while (count--) {
+        // Send a color to the LED strip.
+        // The assembly below also increments the 'colors' pointer,
+        // it will be pointing to the next color at the end of this loop.
+        asm volatile(
         "ld __tmp_reg__, %a0+\n"
         "ld __tmp_reg__, %a0\n"
         "rcall send_led_strip_byte%=\n"  // Send red component.
@@ -83,33 +80,33 @@ void __attribute__((noinline)) led_strip_write(rgb_color * colors, unsigned int 
         // high for some time.  The amount of time the line is high depends on whether the bit is 0 or 1,
         // but this function always takes the same time (2 us).
         "send_led_strip_bit%=:\n"
-#if F_CPU == 8000000
+        #if F_CPU == 8000000
         "rol __tmp_reg__\n"                      // Rotate left through carry.
-#endif
+        #endif
         "sbi %2, %3\n"                           // Drive the line high.
 
-#if F_CPU != 8000000
+        #if F_CPU != 8000000
         "rol __tmp_reg__\n"                      // Rotate left through carry.
-#endif
+        #endif
 
-#if F_CPU == 16000000
+        #if F_CPU == 16000000
         "nop\n" "nop\n"
-#elif F_CPU == 20000000
+        #elif F_CPU == 20000000
         "nop\n" "nop\n" "nop\n" "nop\n"
 #elif F_CPU != 8000000
 #error "Unsupported F_CPU"
-#endif
+        #endif
 
         "brcs .+2\n" "cbi %2, %3\n"              // If the bit to send is 0, drive the line low now.
 
-#if F_CPU == 8000000
+        #if F_CPU == 8000000
         "nop\n" "nop\n"
-#elif F_CPU == 16000000
+        #elif F_CPU == 16000000
         "nop\n" "nop\n" "nop\n" "nop\n" "nop\n"
-#elif F_CPU == 20000000
+        #elif F_CPU == 20000000
         "nop\n" "nop\n" "nop\n" "nop\n" "nop\n"
         "nop\n" "nop\n"
-#endif
+        #endif
 
         "brcc .+2\n" "cbi %2, %3\n"              // If the bit to send is 1, drive the line low now.
 
@@ -117,36 +114,33 @@ void __attribute__((noinline)) led_strip_write(rgb_color * colors, unsigned int 
         "led_strip_asm_end%=: "
         : "=b" (colors)
         : "0" (colors),         // %a0 points to the next color to display
-          "I" (_SFR_IO_ADDR(LED_STRIP_PORT)),   // %2 is the port register (e.g. PORTC)
-          "I" (LED_STRIP_PIN)     // %3 is the pin number (0-8)
-    );
+        "I" (_SFR_IO_ADDR(LED_STRIP_PORT)),   // %2 is the port register (e.g. PORTC)
+        "I" (LED_STRIP_PIN)     // %3 is the pin number (0-8)
+        );
 
-    // Uncomment the line below to temporarily enable interrupts between each color.
-    //sei(); asm volatile("nop\n"); cli();
-  }
-  sei();          // Re-enable interrupts now that we are done.
-  _delay_us(80);  // Send the reset signal.
+        // Uncomment the line below to temporarily enable interrupts between each color.
+        //sei(); asm volatile("nop\n"); cli();
+    }
+    sei();          // Re-enable interrupts now that we are done.
+    _delay_us(80);  // Send the reset signal.
 }
 
-#define LED_COUNT 60
+#define LED_COUNT 28
 rgb_color colors[LED_COUNT];
 
-int main()
-{
-  unsigned int time = 0;
+int main() {
+    unsigned int time = 0;
 
-  while(1)
-  {
-    unsigned int i;
-    for(i = 0; i < LED_COUNT; i++)
-    {
-      unsigned char x = (time >> 2) - 8*i;
-      colors[i] = (rgb_color){ x, 255 - x, x };
+    while (1) {
+        unsigned int i;
+        for (i = 0; i < LED_COUNT; i++) {
+            unsigned char x = (time >> 2) - 8 * i;
+            colors[i] = (rgb_color) {x / 50, (255 - x) / 50, x / 50};
+        }
+
+        led_strip_write(colors, LED_COUNT);
+
+        _delay_ms(20);
+        time += 20;
     }
-
-    led_strip_write(colors, LED_COUNT);
-
-    _delay_ms(20);
-    time += 20;
-  }
 }

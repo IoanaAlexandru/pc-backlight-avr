@@ -3,3 +3,6 @@
 *.obj
 *.lss
 *.map
+.idea
+cmake*
+CMake*
